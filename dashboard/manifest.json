@@ -1,0 +1,10 @@
+{
+  "mcp": {
+    "servers": [
+      {
+        "server": "github",
+        "tools": ["get_file_contents", "actions_list", "list_releases", "list_issues", "list_commits", "actions_run_trigger"]
+      }
+    ]
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "video_id": "FF_TEST_001",
+  "structure": "central ring",
+  "palette": "crimson-magenta",
+  "motion_quality": "slow, deliberate and hypnotic",
+  "lighting": "soft directional studio lighting with deep shadows",
+  "materials": [
+    "smooth liquid glass",
+    "translucent flowing silk-like surfaces",
+    "glossy molten surfaces",
+    "luminous ribbon-like surfaces",
+    "semi-transparent layered glass"
+  ],
+  "transformations": [
+    "split into several thin connected flowing ribbons",
+    "twist into increasingly complex overlapping folds",
+    "fragment into controlled floating planes while remaining visually connected",
+    "collapse into narrow luminous strands"
+  ],
+  "duration": 6,
+  "fps": 30,
+  "width": 720,
+  "height": 1280
+}

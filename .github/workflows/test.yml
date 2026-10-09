@@ -1,0 +1,54 @@
+name: tests
+
+# Render motoru, işletim katmanı, yönetim paneli ve workflow dosyaları değişince testleri çalıştırır.
+# Yalnız PR'da çalışır. Eskiden her gönderimde ayrıca "push" için de çalışıyordu: aynı kod iki kez (birleşince üçüncü
+# kez) sınanıyor, her tur 5-7 dakika harcıyordu (beş günde ~300 dakika). Aynı PR'a yeni gönderim gelince süren tur
+# iptal edilir. main'i elle sınamak için: Actions → tests → Run workflow.
+on:
+  pull_request:
+    paths: ['render/**', 'ops/**', 'dashboard/**', 'README.md', '.github/workflows/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: render/requirements.txt
+      - run: |
+          pip install -r render/requirements.txt pyyaml    # pyyaml: workflow dosyası testleri için
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+      - name: Render motoru testleri
+        run: python -m unittest discover -s render/tests -t render -v
+      - name: İşletim katmanı testleri (yayın, öğrenme, jeton, rapor)
+        run: python -m unittest discover -s ops/tests -t . -v
+      - name: Küçük render + doğrulama
+        run: |
+          cat > /tmp/spec.json <<'JSON'
+          {"video_id":"FF_CI_SMOKE","structure":"spiral form","palette":"violet-pink",
+           "motion_quality":"elegant and continuously evolving",
+           "lighting":"controlled cinematic lighting with bright internal highlights",
+           "materials":["smooth liquid glass","fine glowing threads","glossy molten surfaces","smoky transparent layers","luminous ribbon-like surfaces"],
+           "transformations":["twist into increasingly complex overlapping folds","collapse into narrow luminous strands","liquefy into smooth flowing curves","fragment into controlled floating planes while remaining visually connected"],
+           "duration":3,"fps":24,"width":360,"height":640}
+          JSON
+          python render/render.py --spec /tmp/spec.json --out /tmp/smoke.mp4
+          python - <<'PY'
+          import subprocess, json
+          out = subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0','-show_entries','stream=codec_name,width,height,nb_frames','-of','json','/tmp/smoke.mp4'])
+          s = json.loads(out)['streams'][0]
+          assert s['codec_name'] == 'h264' and (s['width'], s['height']) == (360, 640) and int(s['nb_frames']) == 72, s
+          print('ok', s)
+          PY

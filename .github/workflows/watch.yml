@@ -1,0 +1,48 @@
+name: FORMFORM watch
+
+# Nöbetçi. Günde iki kez bakar: saat (Cloudflare Worker) render, yayın, TikTok ve öğrenme turlarını başlatmış mı.
+# Başlamamış ya da başarısız olmuş bir tur varsa onu başlatır ve hata bildirimi açar (saat çalışmıyor olabilir).
+# Her şey yolundaysa birkaç saniyede biter (günde 2 dakika).
+#
+# Eskiden her workflow'un kendi yedek zamanlayıcısı vardı (iki mevsim cron'u). Saat işi yaptığında bile günde 20'ye
+# yakın boş tur açılıyor, her biri 1 dakika sayılıyordu (ayda 250-600 dakika). Onların yerini bu tek tur aldı.
+# Kaçan render'ı başlatırsa yayın ve TikTok'u o render bitince render'ın kendisi başlatır (hazır video olmadan yayın
+# başlamasın). Jeton ve haftalık özet seyrek çalıştığı için kendi zamanlayıcılarını korur.
+run-name: watch (${{ github.event_name == 'schedule' && 'zamanlı' || 'elle' }})
+
+on:
+  schedule:
+    - cron: '25 7,19 * * *'      # UTC. Berlin: yazın 09:25 ve 21:25, kışın 08:25 ve 20:25 (sabah ve akşam turlarından sonra)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write       # hata bildirimi
+  actions: write      # kaçan turu başlatmak
+
+concurrency:
+  group: formform-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Kaçan tur var mı
+        run: python3 -m ops watch
+
+      - name: Hata bildirimi
+        if: failure()
+        run: python3 -m ops alert --workflow "FORMFORM watch" --run-url "$RUN_URL"
+
+      - name: Düzeldi (açık hata kaydını kapat)
+        if: success()
+        continue-on-error: true
+        run: python3 -m ops resolve --workflow "FORMFORM watch"

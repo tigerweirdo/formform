@@ -1,0 +1,77 @@
+name: FORMFORM report
+
+# Haftalık özet. Her pazartesi 09:17 (Berlin), elle de çalıştırılabilir.
+# Berlin yaz saati uygular. İki cron’dan yalnız o anki ofsetin cron’u iş yapar; diğeri başarılı biter, iptal edilmez.
+# Özet bir GitHub issue olarak açılıp size atanır (GitHub e-posta gönderir), sonra kapatılır.
+# İçerik: özet, son ve en iyi/en kötü videolar, süre ve yayın saati karşılaştırması, sistemin öğrendikleri, sağlık.
+run-name: report (${{ github.event_name == 'schedule' && (github.event.schedule == '17 7 * * 1' && 'yaz saati' || 'kış saati') || (inputs.clock && 'saat' || (inputs.bildirim_denemesi && 'bildirim denemesi' || 'elle')) }})
+
+on:
+  schedule:
+    - cron: '17 7 * * 1'         # pazartesi 09:17 Berlin, yaz (UTC+2)
+    - cron: '17 8 * * 1'         # pazartesi 09:17 Berlin, kış (UTC+1)
+  workflow_dispatch:
+    inputs:
+      bildirim_denemesi:
+        description: 'Yalnız bildirim denemesi: kısa bir deneme e-postası gelir, özet hazırlanmaz'
+        required: false
+        type: boolean
+        default: false
+      clock:
+        description: 'Saat işaretler. Elle çalıştırırken boş bırakın.'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+  actions: read       # saat turu bu yuvayı aldı mı
+
+concurrency:
+  group: formform-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      PING: ${{ inputs.bildirim_denemesi }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Berlin mevsimi
+        id: season
+        env:
+          FORMFORM_EVENT: ${{ github.event_name }}
+          FORMFORM_SCHEDULE: ${{ github.event.schedule }}
+        run: python3 -m ops season --job report
+
+      - name: Bu yuva başladı mı
+        id: slot
+        if: steps.season.outputs.run == 'true' && github.event_name == 'schedule'
+        env:
+          FORMFORM_SCHEDULE: ${{ github.event.schedule }}
+        run: python3 -m ops slot --job report
+
+      - name: Özeti hazırla ve gönder
+        if: steps.season.outputs.run == 'true' && steps.slot.outputs.skip != 'true'
+        run: |
+          if [ "$PING" = "true" ]; then
+            python3 -m ops ping
+          else
+            python3 -m ops report
+          fi
+
+      - name: Hata bildirimi
+        if: failure()
+        run: python3 -m ops alert --workflow "FORMFORM report" --run-url "$RUN_URL"
+
+      - name: Düzeldi (açık hata kaydını kapat)
+        if: success() && steps.season.outputs.run == 'true' && steps.slot.outputs.skip != 'true'
+        continue-on-error: true
+        run: python3 -m ops resolve --workflow "FORMFORM report"

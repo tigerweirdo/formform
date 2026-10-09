@@ -1,0 +1,70 @@
+name: FORMFORM panel
+
+# Canlı panel. main dalında dashboard değişince bağımsız sayfa aynı Worker adresine yüklenir.
+# Videolar ve çalışmalar sayfanın içinde değildir; açık panel onları iki dakikada bir GitHub’dan okur.
+# Bu akış yalnız sayfanın kendisini günceller. Claude artifact’ı ayrıdır, bu akış ona dokunmaz.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'dashboard/**'
+      - '.github/workflows/panel.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: formform-panel
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Panel testleri
+        run: |
+          pip install pyyaml
+          python -m unittest ops.tests.test_dashboard ops.tests.test_workflows_yaml.PanelWorkflow
+
+      - name: Paneli yükle
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: dashboard
+          wranglerVersion: "4.86.0"
+          command: deploy
+
+      - name: Saat anahtarını Worker’a yaz
+        working-directory: dashboard
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$DISPATCH_TOKEN" ]; then
+            echo "DISPATCH_TOKEN tanımlı değil, atlandı: Worker iş başlatamaz (saat turları ve TikTok bağlanma çalışmaz)."
+            exit 0
+          fi
+          printf '%s' "$DISPATCH_TOKEN" | npx --yes wrangler@4.86.0 secret put GITHUB_DISPATCH_TOKEN
+
+      - name: TikTok anahtarlarını Worker’a yaz
+        working-directory: dashboard
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CONNECT_KEY: ${{ secrets.TIKTOK_CONNECT_KEY }}
+        run: |
+          if [ -z "$TIKTOK_CLIENT_KEY" ] || [ -z "$TIKTOK_CONNECT_KEY" ]; then
+            echo "TikTok anahtarları tanımlı değil, atlandı (bağlanma yolu kapalı kalır)."
+            exit 0
+          fi
+          printf '%s' "$TIKTOK_CLIENT_KEY" | npx --yes wrangler@4.86.0 secret put TIKTOK_CLIENT_KEY
+          printf '%s' "$TIKTOK_CONNECT_KEY" | npx --yes wrangler@4.86.0 secret put TIKTOK_CONNECT_KEY

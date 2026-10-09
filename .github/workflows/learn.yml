@@ -1,0 +1,63 @@
+name: FORMFORM learn
+
+# Öğrenme. Üç saatte bir çalışır, elle de başlatılabilir. Turu saat (Cloudflare Worker) başlatır, saat kaçırırsa
+# nöbetçi (FORMFORM watch) başlatır. Kendi zamanlayıcısı yoktur (boş yedek turlar dakika harcıyordu).
+#   1. Yayından 24 ve 72 saat geçen videoların Instagram ölçümleri (izlenme süresi dahil)
+#   2. 72 saatlik verisi olan videolara performans skoru
+#   3. Skoru olan tüm videolardan DNA ağırlıkları (hangi yapı/palet/hareket iyi çalışıyor)
+#   4. TikTok (bağlıysa): gelen kutusundan paylaştığınız taslaklar bulunur, 24 ve 72 saatlik sayıları okunur, skorlanır.
+#      Yalnız okur. Jetonu yenilemez (yenileme TikTok workflow'unun işidir), jeton yoksa ya da dolmuşsa adım atlanır.
+# Ölçülecek video ya da yeni skor yoksa sonraki adım yine çalışır. Instagram adımı hata verse de TikTok adımı çalışır.
+run-name: learn (${{ inputs.clock && 'saat' || (inputs.watch && 'nöbet' || 'elle') }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      clock:
+        description: 'Saat işaretler. Elle çalıştırırken boş bırakın.'
+        required: false
+        type: boolean
+        default: false
+      watch:
+        description: 'Nöbetçi işaretler. Elle çalıştırırken boş bırakın.'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: formform-learn
+  cancel-in-progress: false
+
+jobs:
+  learn:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Öğren
+        run: python3 -m ops learn
+
+      - name: TikTok paylaşımlarını bul ve ölç
+        if: ${{ !cancelled() }}
+        run: python3 -m ops tiktok-sync
+
+      - name: Hata bildirimi
+        if: failure()
+        run: python3 -m ops alert --workflow "FORMFORM learn" --run-url "$RUN_URL"
+
+      - name: Düzeldi (açık hata kaydını kapat)
+        if: success()
+        continue-on-error: true
+        run: python3 -m ops resolve --workflow "FORMFORM learn"

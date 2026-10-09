@@ -1,0 +1,24 @@
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+        <ellipse cx="16" cy="16" rx="13" ry="6" fill="none" stroke="currentColor" stroke-width="2" transform="rotate(-28 16 16)"/>
+        <ellipse cx="16" cy="16" rx="13" ry="6" fill="none" stroke="currentColor" stroke-width="2" opacity=".55" transform="rotate(32 16 16)"/>
+        <ellipse cx="16" cy="16" rx="13" ry="6" fill="none" stroke="currentColor" stroke-width="2" opacity=".28" transform="rotate(90 16 16)"/>
+      </svg>
+      <div><h1>FORM/FORM</h1><p>Kontrol paneli</p></div>
+    </div>
+    <div class="top-r">
+      <div id="statusPill" role="status" aria-live="polite"></div>
+      <div id="modeSeg" class="seg" role="group" aria-label="Veri kaynağı"></div>
+      <button id="refreshBtn" class="btn" type="button">Yenile</button>
+      <button id="keyBtn" class="btn" type="button" hidden>Anahtar</button>
+      <span id="stamp" class="stamp"></span>
+    </div>
+  </header>
+  <div id="banner" class="banner" hidden></div>
+  <nav id="tabs" class="tabs" role="tablist" aria-label="Bölümler"></nav>
+  <main id="main" role="tabpanel" tabindex="-1"></main>
+  <div id="drawer" class="drawer" hidden></div>
+  <div id="tip" class="tip" role="tooltip" hidden></div>
+</div>

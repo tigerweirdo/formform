@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About · FORM/FORM</title>
+<style>:root{color-scheme:light dark;--bg:#fafafa;--fg:#1a1a1a;--mute:#5c5c5c;--line:#e2e2e2}
+@media (prefers-color-scheme:dark){:root{--bg:#161616;--fg:#ececec;--mute:#a0a0a0;--line:#2e2e2e}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:42rem;margin:0 auto;padding:2rem 1rem 3rem}
+nav,footer{max-width:42rem;margin:0 auto;padding:1rem;font-size:.9rem;color:var(--mute)}
+nav{border-bottom:1px solid var(--line)}footer{border-top:1px solid var(--line)}
+nav a,footer a{margin-right:1rem}a{color:inherit}
+h1{font-size:1.6rem;margin:0 0 .25rem}h2{font-size:1.1rem;margin:2rem 0 .5rem}p,li{margin:.5rem 0}.meta{color:var(--mute);font-size:.9rem}</style>
+</head>
+<body>
+<nav><a href="about.html">About</a><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a></nav>
+<main>
+<h1>FORM/FORM</h1>
+<p class="meta">A personal project. Last updated October 5, 2026.</p>
+<p>FORM/FORM generates original abstract, seamlessly looping videos and measures which visual styles people respond to, so the next videos can be better.</p>
+<h2>How it uses TikTok</h2>
+<ul>
+<li><strong>Drafts, not automatic posts.</strong> Each video is uploaded as a draft to the owner's own TikTok inbox. The owner reviews it and publishes it manually in the TikTok app. The tool never posts on its own.</li>
+<li><strong>Own statistics only.</strong> It reads public statistics of the owner's own videos (views, likes, comments, shares) to learn which styles perform best.</li>
+<li><strong>One account.</strong> The tool is operated by an individual and connected to a single TikTok account, the owner's. It is not a public service and has no sign-up for other users. It does not access any other user's data.</li>
+</ul>
+<h2>How it works</h2>
+<ol>
+<li>The tool renders a new original video, seamlessly looping, 8 to 30 seconds, vertical, with its own generated ambient sound.</li>
+<li>It uploads the video as a <strong>draft</strong> to the owner's TikTok inbox (<code>video.upload</code>).</li>
+<li>The owner opens the draft in TikTok, adds the caption and publishes it manually.</li>
+<li>The tool reads the statistics of the owner's own videos (<code>video.list</code>) and learns which visual styles perform best, so the next videos can be better.</li>
+</ol>
+<h2>Connect TikTok (owner only)</h2>
+<p>Connecting an account is restricted to the owner, who needs a private setup key. The flow uses TikTok Login Kit: the owner is sent to TikTok's own consent screen, which lists the permissions below, approves them, and returns to this site. Nothing is posted until the owner publishes a draft. <a href="/auth/tiktok/start">Connect TikTok</a></p>
+<h2>Requested TikTok permissions</h2>
+<ul>
+<li><code>video.upload</code>: send a draft to the owner's inbox.</li>
+<li><code>user.info.basic</code> and <code>video.list</code>: identify the connected account and read the statistics of its own videos.</li>
+</ul>
+<p>See the <a href="privacy.html">Privacy Policy</a> and the <a href="terms.html">Terms of Service</a>. Questions: <a href="mailto:contact@example.com">contact@example.com</a>.</p>
+</main>
+<footer><a href="about.html">About</a><a href="privacy.html">Privacy Policy</a><a href="terms.html">Terms of Service</a><a href="mailto:contact@example.com">contact@example.com</a></footer>
+</body>
+</html>

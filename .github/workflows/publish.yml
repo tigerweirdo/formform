@@ -1,0 +1,76 @@
+name: FORMFORM publish
+
+# Yayıncı. 07:45 ve 19:45'te (Berlin) başlar, video yaklaşık 08:00 ve 20:00'de Instagram'a çıkar.
+# Turu saat (Cloudflare Worker) başlatır. Saat bir turu kaçırırsa nöbetçi (FORMFORM watch) başlatır.
+# Bu workflow'un kendi zamanlayıcısı yoktur (boş yedek turlar dakika harcıyordu). Elle de çalıştırılabilir.
+#
+#   1. En yeni hazır render'ı seç (release adı "render <id>")
+#   2. Üstlen: release adı "claimed <id>" olur. Çift paylaşımı önler
+#   3. Cloudinary'ye yükle, Instagram Reel oluştur, işlenmesini bekle, paylaş
+#   4. Veri dalına satır yaz, release adını "published <id>" yap
+#
+# Başarısız yayında release "claimed" kalır ve otomatik denenmez.
+# Elle çalıştırırken "dry_run" işaretlenirse hiçbir şey paylaşılmaz: jeton, indirme ve Cloudinary sınanır.
+run-name: publish (${{ inputs.clock && 'saat' || (inputs.watch && 'nöbet' || (inputs.dry_run && 'deneme' || 'elle')) }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Deneme: paylaşmadan her şeyi sına'
+        required: false
+        type: boolean
+        default: false
+      clock:
+        description: 'Saat işaretler. Elle çalıştırırken boş bırakın.'
+        required: false
+        type: boolean
+        default: false
+      watch:
+        description: 'Nöbetçi işaretler. Elle çalıştırırken boş bırakın.'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: formform-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+      # İsteğe bağlı (Settings → Secrets and variables → Actions → Variables). Boşsa koddaki varsayılan kullanılır.
+      CLOUDINARY_CLOUD_NAME: ${{ vars.CLOUDINARY_CLOUD_NAME }}
+      IG_USER_ID: ${{ vars.IG_USER_ID }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Yayınla
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python3 -m ops publish --dry-run
+          else
+            python3 -m ops publish
+          fi
+
+      - name: Hata bildirimi
+        if: failure()
+        run: python3 -m ops alert --workflow "FORMFORM publish" --run-url "$RUN_URL"
+
+      - name: Düzeldi (açık hata kaydını kapat)
+        if: success()
+        continue-on-error: true
+        run: python3 -m ops resolve --workflow "FORMFORM publish"

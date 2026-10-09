@@ -1,0 +1,118 @@
+name: FORMFORM tiktok
+
+# TikTok. Her gün 07:50 ve 19:50'de (Berlin) en yeni hazır render TikTok gelen kutusuna TASLAK olarak yüklenir,
+# başlık size kopyalanabilir bildirim olarak gelir, paylaşımı siz yaparsınız. Bağlanma, istatistik ve eşitleme elle çalışır.
+# Direct Post (otomatik paylaşım) KULLANILMAZ: TikTok her paylaşım için kullanıcının açık onayını ister.
+#
+# Saat Instagram'ınkiyle aynı düzendedir: turu Cloudflare Worker başlatır ("(saat)"), saat kaçırırsa nöbetçi
+# (FORMFORM watch) başlatır ("(nöbet)"). Kendi zamanlayıcısı yoktur (boş yedek turlar dakika harcıyordu).
+#
+#   upload : en yeni hazır render'ı gelen kutusuna taslak olarak yükler (zamanlı turlar hep bunu yapar)
+#   connect: siteden gelen yetkilendirme kodunu jetona çevirir, şifreli saklar (kod tek kullanımlık, yeniden denenmez)
+#   stats  : hesabın kendi videolarının izlenme, beğeni, yorum, paylaşım sayılarını okur (yalnız okuma)
+#   sync   : paylaştığınız taslakları bulur, 24/72 saatlik sayıları kayda yazar, skorlar. Bunu öğrenme turu üç saatte
+#            bir kendisi yapar (learn.yml), buradaki düğme beklemeden elle çalıştırmak içindir
+run-name: tiktok (${{ inputs.clock && 'saat' || (inputs.watch && 'nöbet' || inputs.action) }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'connect: siteden gelen kodla bağlan. upload: taslak yükle. stats: sayıları oku. sync: paylaşılanları bul ve ölç'
+        required: true
+        type: choice
+        options: [connect, upload, stats, sync]
+        default: upload
+      code:
+        description: 'Yalnız connect: TikTok yetkilendirme kodu (siteden otomatik gelir, elle girmeyin)'
+        required: false
+        type: string
+        default: ''
+      replace:
+        description: 'Yalnız connect: bağlı olandan FARKLI bir TikTok hesabının yerine geçmesine izin ver'
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: 'upload: yüklemeden her şeyi sına. sync: kayda yazmadan ne bulunduğunu göster'
+        required: false
+        type: boolean
+        default: false
+      clock:
+        description: 'Saat işaretler. Elle çalıştırırken boş bırakın.'
+        required: false
+        type: boolean
+        default: false
+      watch:
+        description: 'Nöbetçi işaretler. Elle çalıştırırken boş bırakın.'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: formform-tiktok
+  cancel-in-progress: false
+
+jobs:
+  tiktok:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      TIKTOK_CODE: ${{ inputs.code }}
+      REPLACE: ${{ inputs.replace && 'yes' || '' }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Kodu günlükte gizle
+        if: inputs.action == 'connect'
+        run: echo "::add-mask::$TIKTOK_CODE"
+
+      - name: Bağlan
+        if: inputs.action == 'connect'
+        run: |
+          if [ -n "$REPLACE" ]; then
+            python3 -m ops tiktok-connect --replace
+          else
+            python3 -m ops tiktok-connect
+          fi
+
+      - name: Taslak yükle
+        if: inputs.action == 'upload'
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python3 -m ops publish --platform tiktok --dry-run
+          else
+            python3 -m ops publish --platform tiktok
+          fi
+
+      - name: İstatistikleri oku
+        if: inputs.action == 'stats'
+        run: python3 -m ops tiktok-stats
+
+      - name: Paylaşılanları bul ve ölç
+        if: inputs.action == 'sync'
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python3 -m ops tiktok-sync --refresh --dry-run
+          else
+            python3 -m ops tiktok-sync --refresh
+          fi
+
+      - name: Hata bildirimi
+        if: failure()
+        run: python3 -m ops alert --workflow "FORMFORM tiktok" --run-url "$RUN_URL"
+
+      - name: Düzeldi (açık hata kaydını kapat)
+        if: success()
+        continue-on-error: true
+        run: python3 -m ops resolve --workflow "FORMFORM tiktok"

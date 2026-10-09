@@ -1,0 +1,15 @@
+{
+  "name": "formform-dashboard",
+  "account_id": "c1b5d4ef40c23450fafc4bc70fc0039e",
+  "main": "clock.js",
+  "compatibility_date": "2026-10-03",
+  "workers_dev": true,
+  "preview_urls": false,
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "assets": {
+    "directory": "./standalone",
+    "binding": "ASSETS"
+  }
+}

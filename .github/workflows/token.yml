@@ -1,0 +1,68 @@
+name: FORMFORM token
+
+# Instagram jetonunu yeniler (60 gün geçerli yeni süre). Her ayın 1'i ve 15'i 05:07 (Berlin), elle de çalıştırılabilir.
+# Berlin yaz saati uygular. İki cron’dan yalnız o anki ofsetin cron’u iş yapar; diğeri başarılı biter, iptal edilmez.
+# İki haftada bir yenilemek, bir denemenin kaçmasına tolerans verir.
+# Yenilenen jeton şifrelenip veri dalına yazılır, anahtarı IG_ACCESS_TOKEN gizli değeridir.
+# Jeton en az 24 saatlik olmalıdır: ilk kurulumdan hemen sonra elle çalıştırmayın.
+run-name: token (${{ github.event_name == 'schedule' && (github.event.schedule == '7 3 1,15 * *' && 'yaz saati' || 'kış saati') || (inputs.clock && 'saat' || 'elle') }})
+
+on:
+  schedule:
+    - cron: '7 3 1,15 * *'       # 05:07 Berlin, yaz (UTC+2)
+    - cron: '7 4 1,15 * *'       # 05:07 Berlin, kış (UTC+1)
+  workflow_dispatch:
+    inputs:
+      clock:
+        description: 'Saat işaretler. Elle çalıştırırken boş bırakın.'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+  actions: read       # saat turu bu yuvayı aldı mı
+
+concurrency:
+  group: formform-token
+  cancel-in-progress: false
+
+jobs:
+  token:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Berlin mevsimi
+        id: season
+        env:
+          FORMFORM_EVENT: ${{ github.event_name }}
+          FORMFORM_SCHEDULE: ${{ github.event.schedule }}
+        run: python3 -m ops season --job token
+
+      - name: Bu yuva başladı mı
+        id: slot
+        if: steps.season.outputs.run == 'true' && github.event_name == 'schedule'
+        env:
+          FORMFORM_SCHEDULE: ${{ github.event.schedule }}
+        run: python3 -m ops slot --job token
+
+      - name: Jetonu yenile
+        if: steps.season.outputs.run == 'true' && steps.slot.outputs.skip != 'true'
+        run: python3 -m ops token
+
+      - name: Hata bildirimi
+        if: failure()
+        run: python3 -m ops alert --workflow "FORMFORM token" --run-url "$RUN_URL"
+
+      - name: Düzeldi (açık hata kaydını kapat)
+        if: success() && steps.season.outputs.run == 'true' && steps.slot.outputs.skip != 'true'
+        continue-on-error: true
+        run: python3 -m ops resolve --workflow "FORMFORM token"
